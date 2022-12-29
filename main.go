@@ -284,8 +284,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer jsonFile.Close()
-	resultBytes, _ := json.Marshal(result)
-	fmt.Fprintln(jsonFile, resultBytes)
+	resultBytes, _ := json.MarshalIndent(result, "", "  ")
+	fmt.Fprintf(jsonFile, "%s", resultBytes)
 }
 
 func Space(n int) (spacer string) {
