@@ -89,6 +89,11 @@ func init() {
 }
 
 func main() {
+	err := exec.Command(config.Ffmpeg, "-h").Run()
+	if err != nil {
+		fmt.Println(err)
+		panic("Error: Failed Run ffmpeg!")
+	}
 	queue := make(chan struct{}, config.QueueLimit) // 並列上限
 	filepath.WalkDir(config.Search, func(path string, d fs.DirEntry, err error) error {
 		// ディレクトリチェック
