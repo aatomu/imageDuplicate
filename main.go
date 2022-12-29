@@ -278,7 +278,7 @@ func main() {
 	fmt.Println("")
 	fmt.Println("----------------------------------------")
 	fmt.Println("")
-	jsonFile, err := os.OpenFile("test.txt", os.O_WRONLY|os.O_CREATE, 0666)
+	jsonFile, err := os.OpenFile("duplicate.json", os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		//エラー処理
 		log.Fatal(err)
