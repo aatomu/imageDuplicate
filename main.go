@@ -212,7 +212,7 @@ func main() {
 		for j := i + 1; j < len(photoFiles); j++ {
 			data2 := photoFiles[j]
 			distance, _ := data1.hash.Distance(data2.hash)
-			if distance <= photoAccept {
+			if distance <= config.PhotoAccept {
 				fmt.Printf("          %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
 				fmt.Printf("          %s (%4dpx*%4dpx)\n", data2.path, data2.width, data2.height)
 				fmt.Printf("Distance:%d\n", distance)
@@ -247,7 +247,7 @@ func main() {
 					imageDistance, _ := data1.hashs[k].Distance(data2.hashs[k])
 					distance += imageDistance
 				}
-				if distance <= videoAccept {
+				if distance <= config.VideoAccept {
 					fmt.Printf("          %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
 					fmt.Printf("          %s (%4dpx*%4dpx)\n", data2.path, data2.width, data2.height)
 					fmt.Printf("Distance:%d\n", distance)
