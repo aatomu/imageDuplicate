@@ -1,0 +1,7 @@
+{
+  "ffmpeg":"ffmpeg",
+  "search":"C:\\",
+  "photoAccept": 5,
+  "videoAccept": 15,
+  "queueLimit":30
+}
