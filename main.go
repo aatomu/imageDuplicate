@@ -130,10 +130,7 @@ func main() {
 				info.ImageFileCount++
 				fmt.Printf("%s ・%-40s  (%s) Image No.%04d\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), info.ImageFileCount)
 				// 保存
-				imgFile, _ := os.Open(pathFunc)
-				defer imgFile.Close()
-				img, _, _ := image.Decode(imgFile)
-				imgHash, _ := goimagehash.PerceptionHash(img)
+				img, imgHash := image2Hash(pathFunc)
 				photoFiles = append(photoFiles, photoHash{
 					hash:   imgHash,
 					path:   pathFunc,
@@ -182,17 +179,11 @@ func main() {
 					timing := fmt.Sprintf("%d", videoPhotoTiming-videoPhotoTimingOffset)
 					tempPhoto := fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name())
 					exec.Command(config.Ffmpeg, "-ss", timing, "-i", pathFunc, "-frames:v", "1", tempPhoto).Run()
-					// Hash生成
-					imgFile, _ := os.Open(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
-					defer func(imgFileDel *os.File, fileInfoDel fs.FileInfo) {
-						imgFileDel.Close()
-						// temp写真削除
-						os.Remove(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoDel.Name()))
-					}(imgFile, fileInfoFunc)
-					img, _, _ := image.Decode(imgFile)
-					imgHash, _ := goimagehash.PerceptionHash(img)
-					video.hashs[i] = imgHash
+					// Hash保存
+					_, video.hashs[i] = image2Hash(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
 				}
+				// temp写真削除
+				os.Remove(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
 				// 保存
 				mapEdit.Lock()
 				defer mapEdit.Unlock()
@@ -337,4 +328,18 @@ func ValueSize(n int64) {
 		info.valueTB += info.valueGB / 1000
 		info.valueGB = info.valueGB % 1000
 	}
+}
+
+func image2Hash(file string) (img image.Image, imgHash *goimagehash.ImageHash) {
+	imgFile, err := os.Open(file)
+	if err != nil {
+		log.Panicf("Error: Failed Open Image %s", file)
+	}
+	defer imgFile.Close()
+	img, _, err = image.Decode(imgFile)
+	if err != nil {
+		log.Panicf("Error: Failed Decode Image %s", file)
+	}
+	imgHash, _ = goimagehash.PerceptionHash(img)
+	return
 }
