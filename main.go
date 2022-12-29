@@ -96,6 +96,10 @@ func main() {
 	}
 	queue := make(chan struct{}, config.QueueLimit) // 並列上限
 	filepath.WalkDir(config.Search, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			fmt.Println(err)
+			panic("Error: Failed Walk Directorys!")
+		}
 		// ディレクトリチェック
 		index := strings.Count(path, string(os.PathSeparator))
 		if d.IsDir() {
