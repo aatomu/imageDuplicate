@@ -97,7 +97,7 @@ func main() {
 	queue := make(chan struct{}, config.QueueLimit) // 並列上限
 	filepath.WalkDir(config.Search, func(path string, d fs.DirEntry, err error) error {
 		// ディレクトリチェック
-		index := strings.Count(filepath.Dir(path), "/")
+		index := strings.Count(path, string(os.PathSeparator))
 		if d.IsDir() {
 			fmt.Printf("%sDirectory: %s(%s)\n", Space(index-1), d.Name(), path)
 			info.DirCount++
