@@ -1,5 +1,7 @@
 # 実行結果
 duplicate.json
+# 動画用tempファイル
+temp/*
 # local実行用設
 local_config.json
 run.sh
