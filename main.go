@@ -231,6 +231,8 @@ func main() {
 					Distance: distance,
 				})
 			}
+			// 引っかかったのは今後検索に掛けない
+			photoFiles = append(photoFiles[:j], photoFiles[j+1:]...)
 		}
 	}
 	// 動画
@@ -266,7 +268,8 @@ func main() {
 						Distance: distance,
 						Time:     videoTime,
 					})
-
+					// 引っかかったのは今後検索に掛けない
+					videos = append(videos[:j], videos[j+1:]...)
 				}
 			}
 		}
