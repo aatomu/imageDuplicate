@@ -57,16 +57,22 @@ type JsonExport struct {
 }
 
 type ImageInfo struct {
-	Compare ImageData   `json:"compare"`
-	With    []ImageData `json:"with"`
-	Time    int         `json:"time,omitempty"`
+	Compare CompareImageData `json:"compare"`
+	With    []WithImageData  `json:"with"`
+	Time    int              `json:"time,omitempty"`
 }
 
-type ImageData struct {
+type CompareImageData struct {
+	Path   string `json:"path"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+}
+
+type WithImageData struct {
 	Path     string `json:"path"`
 	Width    int    `json:"width"`
 	Height   int    `json:"height"`
-	Distance int    `json:"distance,omitempty"`
+	Distance int    `json:"distance"`
 }
 
 var (
@@ -209,7 +215,7 @@ func main() {
 	// 画像
 	for i := 0; i < len(photoFiles); i++ {
 		data1 := photoFiles[i]
-		var duplicates []ImageData
+		var duplicates []WithImageData
 		for j := i + 1; j < len(photoFiles); j++ {
 			data2 := photoFiles[j]
 			distance, _ := data1.hash.Distance(data2.hash)
@@ -218,7 +224,7 @@ func main() {
 				fmt.Printf("          %s (%4dpx*%4dpx)\n", data2.path, data2.width, data2.height)
 				fmt.Printf("Distance:%d\n", distance)
 				// json用に保存
-				duplicates = append(duplicates, ImageData{
+				duplicates = append(duplicates, WithImageData{
 					Path:     data2.path,
 					Width:    data2.width,
 					Height:   data2.height,
@@ -231,7 +237,7 @@ func main() {
 		// 重複があればjsonに保存
 		if len(duplicates) > 0 {
 			result.Images = append(result.Images, ImageInfo{
-				Compare: ImageData{
+				Compare: CompareImageData{
 					Path:   data1.path,
 					Width:  data1.width,
 					Height: data1.height,
@@ -247,7 +253,7 @@ func main() {
 		}
 		for i := 0; i < len(videos); i++ {
 			data1 := videos[i]
-			var duplicates []ImageData
+			var duplicates []WithImageData
 			for j := i + 1; j < len(videos); j++ {
 				data2 := videos[j]
 				distance := 0
@@ -260,7 +266,7 @@ func main() {
 					fmt.Printf("          %s (%4dpx*%4dpx)\n", data2.path, data2.width, data2.height)
 					fmt.Printf("Distance:%d\n", distance)
 					// json用に保存
-					duplicates = append(duplicates, ImageData{
+					duplicates = append(duplicates, WithImageData{
 						Path:     data2.path,
 						Width:    data2.width,
 						Height:   data2.height,
@@ -273,7 +279,7 @@ func main() {
 			// 重複があればjsonに保存
 			if len(duplicates) > 0 {
 				result.Images = append(result.Images, ImageInfo{
-					Compare: ImageData{
+					Compare: CompareImageData{
 						Path:   data1.path,
 						Width:  data1.width,
 						Height: data1.height,
