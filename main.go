@@ -189,13 +189,7 @@ func main() {
 					// 取り出し
 					timing := fmt.Sprintf("%d", videoPhotoTiming-videoPhotoTimingOffset)
 					tempPhoto := fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name())
-					err := exec.Command(config.Ffmpeg, "-ss", timing, "-i", pathFunc, "-frames:v", "1", tempPhoto).Run()
-					// temp写真削除
-					defer os.Remove(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
-					if err != nil {
-						errors = append(errors, err)
-						return
-					}
+					exec.Command(config.Ffmpeg, "-ss", timing, "-i", pathFunc, "-frames:v", "1", tempPhoto).Run()
 					// Hash保存
 					_, hash, err := image2Hash(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
 					if err != nil {
@@ -204,6 +198,8 @@ func main() {
 					}
 					video.hashs[i] = hash
 				}
+				// temp写真削除
+				os.Remove(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
 				// 保存
 				mapEdit.Lock()
 				defer mapEdit.Unlock()
