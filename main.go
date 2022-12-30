@@ -9,7 +9,7 @@ import (
 	_ "image/png"
 	"io"
 	"io/fs"
-	"log"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -172,7 +172,7 @@ func main() {
 					if _, err := os.Stat("./temp"); err != nil {
 						err := os.Mkdir("./temp", 0666)
 						if err != nil {
-							log.Panic(err)
+							panic(err)
 						}
 					}
 					// 取り出し
@@ -291,14 +291,15 @@ func main() {
 	fmt.Println("")
 	fmt.Println("----------------------------------------")
 	fmt.Println("")
-	jsonFile, err := os.OpenFile("duplicate.json", os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		//エラー処理
-		log.Fatal(err)
+
+	if _, err := os.Stat("./duplicate.json"); err != nil {
+		_, err = os.Create("./duplicate.json")
+		if err != nil {
+			panic(err)
+		}
 	}
-	defer jsonFile.Close()
 	resultBytes, _ := json.MarshalIndent(result, "", "  ")
-	fmt.Fprintf(jsonFile, "%s", resultBytes)
+	ioutil.WriteFile("./duplicate.json", resultBytes, 0644)
 }
 
 func Space(n int) (spacer string) {
@@ -346,12 +347,12 @@ func ValueSize(n int64) {
 func image2Hash(file string) (img image.Image, imgHash *goimagehash.ImageHash) {
 	imgFile, err := os.Open(file)
 	if err != nil {
-		log.Panicf("Error: Failed Open Image %s", file)
+		panic(err)
 	}
 	defer imgFile.Close()
 	img, _, err = image.Decode(imgFile)
 	if err != nil {
-		log.Panicf("Error: Failed Decode Image %s", file)
+		panic(err)
 	}
 	imgHash, _ = goimagehash.PerceptionHash(img)
 	return
