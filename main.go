@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/corona10/goimagehash"
 )
@@ -96,6 +97,14 @@ func init() {
 }
 
 func main() {
+	fmt.Println("---[Config]---")
+	fmt.Printf("ffmpeg      : %s", config.Ffmpeg)
+	fmt.Printf("search      : %s", config.Search)
+	fmt.Printf("photoAccept : %d", config.PhotoAccept)
+	fmt.Printf("videoAccept : %d", config.VideoAccept)
+	fmt.Printf("queueLimit  : %d", config.QueueLimit)
+	time.Sleep(5 * time.Second)
+
 	err := exec.Command(config.Ffmpeg, "-h").Run()
 	if err != nil {
 		fmt.Println(err)
