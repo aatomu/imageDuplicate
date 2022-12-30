@@ -220,9 +220,6 @@ func main() {
 			data2 := photoFiles[j]
 			distance, _ := data1.hash.Distance(data2.hash)
 			if distance <= config.PhotoAccept {
-				fmt.Printf("          %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
-				fmt.Printf("          %s (%4dpx*%4dpx)\n", data2.path, data2.width, data2.height)
-				fmt.Printf("Distance:%d\n", distance)
 				// json用に保存
 				duplicates = append(duplicates, WithImageData{
 					Path:     data2.path,
@@ -244,6 +241,11 @@ func main() {
 				},
 				With: duplicates,
 			})
+			// 見やすく表示
+			fmt.Printf("Compare: %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
+			for j := 0; j < len(duplicates); j++ {
+				fmt.Printf("    [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
+			}
 		}
 	}
 	// 動画
@@ -262,9 +264,6 @@ func main() {
 					distance += imageDistance
 				}
 				if distance <= config.VideoAccept {
-					fmt.Printf("          %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
-					fmt.Printf("          %s (%4dpx*%4dpx)\n", data2.path, data2.width, data2.height)
-					fmt.Printf("Distance:%d\n", distance)
 					// json用に保存
 					duplicates = append(duplicates, WithImageData{
 						Path:     data2.path,
@@ -287,6 +286,11 @@ func main() {
 					With: duplicates,
 					Time: videoTime,
 				})
+				// 見やすく表示
+				fmt.Printf("Compare: %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
+				for j := 0; j < len(duplicates); j++ {
+					fmt.Printf("    [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
+				}
 			}
 		}
 	}
