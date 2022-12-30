@@ -228,15 +228,17 @@ func main() {
 			// 引っかかったのは今後検索に掛けない
 			photoFiles = append(photoFiles[:j], photoFiles[j+1:]...)
 		}
-		// jsonに保存
-		result.Images = append(result.Images, ImageInfo{
-			Compare: ImageData{
-				Path:   data1.path,
-				Width:  data1.width,
-				Height: data1.height,
-			},
-			With: duplicates,
-		})
+		// 重複があればjsonに保存
+		if len(duplicates) > 0 {
+			result.Images = append(result.Images, ImageInfo{
+				Compare: ImageData{
+					Path:   data1.path,
+					Width:  data1.width,
+					Height: data1.height,
+				},
+				With: duplicates,
+			})
+		}
 	}
 	// 動画
 	for videoTime, videos := range videoFiles {
@@ -268,16 +270,18 @@ func main() {
 				// 引っかかったのは今後検索に掛けない
 				videos = append(videos[:j], videos[j+1:]...)
 			}
-			// jsonに保存
-			result.Images = append(result.Images, ImageInfo{
-				Compare: ImageData{
-					Path:   data1.path,
-					Width:  data1.width,
-					Height: data1.height,
-				},
-				With: duplicates,
-				Time: videoTime,
-			})
+			// 重複があればjsonに保存
+			if len(duplicates) > 0 {
+				result.Images = append(result.Images, ImageInfo{
+					Compare: ImageData{
+						Path:   data1.path,
+						Width:  data1.width,
+						Height: data1.height,
+					},
+					With: duplicates,
+					Time: videoTime,
+				})
+			}
 		}
 	}
 	fmt.Println("")
