@@ -242,9 +242,9 @@ func main() {
 				With: duplicates,
 			})
 			// 見やすく表示
-			fmt.Printf("Compare: %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
+			fmt.Printf("Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
 			for j := 0; j < len(duplicates); j++ {
-				fmt.Printf("    [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
+				fmt.Printf("         [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
 			}
 		}
 	}
@@ -287,9 +287,9 @@ func main() {
 					Time: videoTime,
 				})
 				// 見やすく表示
-				fmt.Printf("Compare: %s (%4dpx*%4dpx)\n", data1.path, data1.width, data1.height)
+				fmt.Printf("Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
 				for j := 0; j < len(duplicates); j++ {
-					fmt.Printf("    [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
+					fmt.Printf("         [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
 				}
 			}
 		}
