@@ -296,7 +296,7 @@ func main() {
 			}
 			// 重複があればjsonに保存
 			if len(duplicates) > 0 {
-				result.Images = append(result.Images, ImageInfo{
+				result.Videos = append(result.Images, ImageInfo{
 					Compare: CompareImageData{
 						Path:   data1.path,
 						Width:  data1.width,
