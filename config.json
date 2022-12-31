@@ -1,6 +1,6 @@
 {
   "ffmpeg":"ffmpeg",
-  "search":"C:\\",
+  "search":["C:\\Users\\user\\Downloads"],
   "photoAccept": 5,
   "videoAccept": 15,
   "queueLimit":30

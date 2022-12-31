@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	_ "image/png"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,11 +23,11 @@ import (
 
 // コンフィグ
 type checkConfig struct {
-	Ffmpeg      string `json:"ffmpeg"`
-	Search      string `json:"search"`
-	PhotoAccept int    `json:"photoAccept"`
-	VideoAccept int    `json:"videoAccept"`
-	QueueLimit  int    `json:"queueLimit"`
+	Ffmpeg      string   `json:"ffmpeg"`
+	Search      []string `json:"search"`
+	PhotoAccept int      `json:"photoAccept"`
+	VideoAccept int      `json:"videoAccept"`
+	QueueLimit  int      `json:"queueLimit"`
 }
 
 // カウンター
@@ -111,114 +111,116 @@ func main() {
 		panic("Error: Failed Run ffmpeg!")
 	}
 	queue := make(chan struct{}, config.QueueLimit) // 並列上限
-	filepath.WalkDir(config.Search, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			fmt.Println(err)
-			panic("Error: Failed Walk Directorys!")
-		}
-		// ディレクトリチェック
-		index := strings.Count(path, string(os.PathSeparator))
-		if d.IsDir() {
-			fmt.Printf("%sDirectory: %s(%s)\n", Space(index-1), d.Name(), path)
-			info.DirCount++
-			fmt.Printf("%sNow Used: %dT %dG %dM %dK %dB %dDir %dFiles\n", Space(index-1), info.valueTB, info.valueGB, info.valueMB, info.valueKB, info.valueB, info.DirCount, info.ImageFileCount+info.VideoFileCount)
-			return nil
-		}
-		// ファイルサイズ
-		fileInfo, _ := os.Stat(path)
-		ValueSize(fileInfo.Size())
-
-		// 並列処理
-		queue <- struct{}{} // queueの追加
-		funcs.Add(1)        // 実行追加
-		go func(pathFunc string, fileInfoFunc fs.FileInfo, infoFunc FilesInfo) {
-			defer funcs.Done()
-			defer func() { <-queue }()
-			// ファイル処理
-			fileExt := strings.ToLower(pathFunc)
-			fileExt = filepath.Ext(fileExt)
-			// ファイルの種類
-			// 画像: jpeg jpg png webp jfif
-			// 映像: mp4 mov webm (gif)
-
-			if strings.Contains(".jpeg .jpg .png .webp .jfif", fileExt) {
-				// ファイル数追加
-				info.ImageFileCount++
-				fmt.Printf("%s ・%-40s  (%s) Image No.%04d\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), info.ImageFileCount)
-				// 保存
-				img, imgHash, err := image2Hash(pathFunc)
-				if err != nil {
-					errors = append(errors, err)
-					return
-				}
-				photoFiles = append(photoFiles, photoHash{
-					hash:   imgHash,
-					path:   pathFunc,
-					width:  img.Bounds().Dx(),
-					height: img.Bounds().Dy(),
-				})
-				return
+	for _, searchDir := range config.Search {
+		filepath.WalkDir(searchDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				fmt.Println(err)
+				panic("Error: Failed Walk Directorys!")
 			}
-			if strings.Contains(".mp4 .mov .webm", fileExt) {
-				// ファイル数追加
-				info.VideoFileCount++
-				fmt.Printf("%s ・%-40s  (%s) Video No.%04d\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), info.VideoFileCount)
-				// 動画データ入手
-				video := videoHash{
-					path:  pathFunc,
-					hashs: [3]*goimagehash.ImageHash{},
-				}
-				videoTime := 0
-				out, _ := exec.Command(config.Ffmpeg, "-i", pathFunc).CombinedOutput()
-				for _, line := range strings.Split(string(out), "\n") {
-					// 動画時間入手
-					if strings.Contains(line, "Duration") {
-						line = regexp.MustCompile(".*([0-9]{2}):([0-9]{2}):([0-9]{2}).*").ReplaceAllString(line, "$1 $2 $3")
-						var hour, min, sec int
-						fmt.Sscanf(line, "%d %d %d", &hour, &min, &sec)
-						videoTime = hour*3600 + min*60 + sec
-					}
-					// 動画の画質入手
-					if strings.Contains(line, ": Video:") {
-						line = regexp.MustCompile(".+?([0-9]{2,5})x([0-9]{2,5}).*").ReplaceAllString(line, "$1 $2")
-						fmt.Sscanf(line, "%d %d", &video.width, &video.height)
-					}
-				}
-				// 動画のスクショを入手
-				videoPhotoTiming := videoTime / 3
-				videoPhotoTimingOffset := videoPhotoTiming / 2
-				for i := 0; i < 3; i++ {
-					// dirチェック
-					if _, err := os.Stat("./temp"); err != nil {
-						err := os.Mkdir("./temp", 0666)
-						if err != nil {
-							panic(err)
-						}
-					}
-					// 取り出し
-					timing := fmt.Sprintf("%d", videoPhotoTiming-videoPhotoTimingOffset)
-					tempPhoto := fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name())
-					exec.Command(config.Ffmpeg, "-ss", timing, "-i", pathFunc, "-frames:v", "1", tempPhoto).Run()
-					// Hash保存
-					_, hash, err := image2Hash(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
+			// ディレクトリチェック
+			index := strings.Count(path, string(os.PathSeparator))
+			if d.IsDir() {
+				fmt.Printf("%sDirectory: %s(%s)\n", Space(index-1), d.Name(), path)
+				info.DirCount++
+				fmt.Printf("%sNow Used: %dT %dG %dM %dK %dB %dDir %dFiles\n", Space(index-1), info.valueTB, info.valueGB, info.valueMB, info.valueKB, info.valueB, info.DirCount, info.ImageFileCount+info.VideoFileCount)
+				return nil
+			}
+			// ファイルサイズ
+			fileInfo, _ := os.Stat(path)
+			ValueSize(fileInfo.Size())
+
+			// 並列処理
+			queue <- struct{}{} // queueの追加
+			funcs.Add(1)        // 実行追加
+			go func(pathFunc string, fileInfoFunc fs.FileInfo, infoFunc FilesInfo) {
+				defer funcs.Done()
+				defer func() { <-queue }()
+				// ファイル処理
+				fileExt := strings.ToLower(pathFunc)
+				fileExt = filepath.Ext(fileExt)
+				// ファイルの種類
+				// 画像: jpeg jpg png webp jfif
+				// 映像: mp4 mov webm (gif)
+
+				if strings.Contains(".jpeg .jpg .png .webp .jfif", fileExt) {
+					// ファイル数追加
+					info.ImageFileCount++
+					fmt.Printf("%s ・%-40s  (%s) Image No.%04d\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), info.ImageFileCount)
+					// 保存
+					img, imgHash, err := image2Hash(pathFunc)
 					if err != nil {
 						errors = append(errors, err)
 						return
 					}
-					video.hashs[i] = hash
+					photoFiles = append(photoFiles, photoHash{
+						hash:   imgHash,
+						path:   pathFunc,
+						width:  img.Bounds().Dx(),
+						height: img.Bounds().Dy(),
+					})
+					return
 				}
-				// temp写真削除
-				os.Remove(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
-				// 保存
-				mapEdit.Lock()
-				defer mapEdit.Unlock()
-				videoFiles[videoTime] = append(videoFiles[videoTime], video)
-				return
-			}
-			fmt.Printf("%s ・%-40s  (%s)                Skip(%s)\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), fileExt)
-		}(path, fileInfo, info)
-		return nil
-	})
+				if strings.Contains(".mp4 .mov .webm", fileExt) {
+					// ファイル数追加
+					info.VideoFileCount++
+					fmt.Printf("%s ・%-40s  (%s) Video No.%04d\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), info.VideoFileCount)
+					// 動画データ入手
+					video := videoHash{
+						path:  pathFunc,
+						hashs: [3]*goimagehash.ImageHash{},
+					}
+					videoTime := 0
+					out, _ := exec.Command(config.Ffmpeg, "-i", pathFunc).CombinedOutput()
+					for _, line := range strings.Split(string(out), "\n") {
+						// 動画時間入手
+						if strings.Contains(line, "Duration") {
+							line = regexp.MustCompile(".*([0-9]{2}):([0-9]{2}):([0-9]{2}).*").ReplaceAllString(line, "$1 $2 $3")
+							var hour, min, sec int
+							fmt.Sscanf(line, "%d %d %d", &hour, &min, &sec)
+							videoTime = hour*3600 + min*60 + sec
+						}
+						// 動画の画質入手
+						if strings.Contains(line, ": Video:") {
+							line = regexp.MustCompile(".+?([0-9]{2,5})x([0-9]{2,5}).*").ReplaceAllString(line, "$1 $2")
+							fmt.Sscanf(line, "%d %d", &video.width, &video.height)
+						}
+					}
+					// 動画のスクショを入手
+					videoPhotoTiming := videoTime / 3
+					videoPhotoTimingOffset := videoPhotoTiming / 2
+					for i := 0; i < 3; i++ {
+						// dirチェック
+						if _, err := os.Stat("./temp"); err != nil {
+							err := os.Mkdir("./temp", 0666)
+							if err != nil {
+								panic(err)
+							}
+						}
+						// 取り出し
+						timing := fmt.Sprintf("%d", videoPhotoTiming-videoPhotoTimingOffset)
+						tempPhoto := fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name())
+						exec.Command(config.Ffmpeg, "-ss", timing, "-i", pathFunc, "-frames:v", "1", tempPhoto).Run()
+						// Hash保存
+						_, hash, err := image2Hash(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
+						if err != nil {
+							errors = append(errors, err)
+							return
+						}
+						video.hashs[i] = hash
+					}
+					// temp写真削除
+					os.Remove(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
+					// 保存
+					mapEdit.Lock()
+					defer mapEdit.Unlock()
+					videoFiles[videoTime] = append(videoFiles[videoTime], video)
+					return
+				}
+				fmt.Printf("%s ・%-40s  (%s)                Skip(%s)\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), fileExt)
+			}(path, fileInfo, info)
+			return nil
+		})
+	}
 	funcs.Wait()
 
 	fmt.Println("")
@@ -296,7 +298,7 @@ func main() {
 			}
 			// 重複があればjsonに保存
 			if len(duplicates) > 0 {
-				result.Videos = append(result.Images, ImageInfo{
+				result.Videos = append(result.Videos, ImageInfo{
 					Compare: CompareImageData{
 						Path:   data1.path,
 						Width:  data1.width,
@@ -321,14 +323,17 @@ func main() {
 	fmt.Println("----------------------------------------")
 	fmt.Println("")
 
-	if _, err := os.Stat("./duplicate.json"); err != nil {
-		_, err = os.Create("./duplicate.json")
-		if err != nil {
-			panic(err)
-		}
-	}
+	fmt.Println("Data Formatting To Json")
 	resultBytes, _ := json.MarshalIndent(result, "", "  ")
-	ioutil.WriteFile("./duplicate.json", resultBytes, 0644)
+
+	fmt.Println("Format End, Writing To duplicate.json")
+	// 書き込み
+	jsonFile, _ := os.Create("./duplicate.json")
+	defer jsonFile.Close()
+	writer := bufio.NewWriter(jsonFile)
+	writer.Write(resultBytes)
+	writer.Flush()
+	fmt.Println("Write End")
 
 	fmt.Println("")
 	fmt.Println("----------------------------------------")
