@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/corona10/goimagehash"
+	"golang.org/x/crypto/sha3"
 )
 
 // コンフィグ
@@ -40,27 +41,35 @@ type FilesInfo struct {
 
 // hash用struct
 type photoHash struct {
-	hash          *goimagehash.ImageHash
+	imgHash       *goimagehash.ImageHash
+	sha512        string
 	path          string
 	width, height int
 }
 
 type videoHash struct {
-	hashs         [3]*goimagehash.ImageHash
+	imgHashs      [3]*goimagehash.ImageHash
+	sha512        string
 	path          string
 	width, height int
 }
 
 // json用struct
 type JsonExport struct {
-	Images []ImageInfo `json:"image,omitempty"`
-	Videos []ImageInfo `json:"video,omitempty"`
+	Duplicate []ImageInfoDuplicate `json:"duplicate"`
+	Similar   []ImageInfoSimilar   `json:"similar"`
 }
 
-type ImageInfo struct {
+type ImageInfoDuplicate struct {
 	Compare CompareImageData `json:"compare"`
-	With    []WithImageData  `json:"with"`
+	With    []string         `json:"withs"`
 	Time    int              `json:"time,omitempty"`
+}
+
+type ImageInfoSimilar struct {
+	Compare CompareImageData       `json:"compare"`
+	With    []WithImageDataSimilar `json:"with"`
+	Time    int                    `json:"time,omitempty"`
 }
 
 type CompareImageData struct {
@@ -69,7 +78,7 @@ type CompareImageData struct {
 	Height int    `json:"height"`
 }
 
-type WithImageData struct {
+type WithImageDataSimilar struct {
 	Path     string `json:"path"`
 	Width    int    `json:"width"`
 	Height   int    `json:"height"`
@@ -97,6 +106,7 @@ func init() {
 }
 
 func main() {
+	// コンフィグ表示
 	fmt.Println("---[Config]---")
 	fmt.Printf("ffmpeg      : %s\n", config.Ffmpeg)
 	fmt.Printf("search      : %s\n", config.Search)
@@ -105,11 +115,14 @@ func main() {
 	fmt.Printf("queueLimit  : %d\n\n", config.QueueLimit)
 	time.Sleep(5 * time.Second)
 
+	// ffmpegチェック
 	err := exec.Command(config.Ffmpeg, "-h").Run()
 	if err != nil {
 		fmt.Println(err)
 		panic("Error: Failed Run ffmpeg!")
 	}
+
+	// search
 	queue := make(chan struct{}, config.QueueLimit) // 並列上限
 	for _, searchDir := range config.Search {
 		filepath.WalkDir(searchDir, func(path string, d fs.DirEntry, err error) error {
@@ -138,36 +151,43 @@ func main() {
 				// ファイル処理
 				fileExt := strings.ToLower(pathFunc)
 				fileExt = filepath.Ext(fileExt)
-				// ファイルの種類
-				// 画像: jpeg jpg png webp jfif
-				// 映像: mp4 mov webm (gif)
 
+				// 画像(jpeg jpg png webp jfif) の処理
 				if strings.Contains(".jpeg .jpg .png .webp .jfif", fileExt) {
 					// ファイル数追加
 					info.ImageFileCount++
 					fmt.Printf("%s ・%-40s  (%s) Image No.%04d\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), info.ImageFileCount)
-					// 保存
+					// Hash化
 					img, imgHash, err := image2Hash(pathFunc)
 					if err != nil {
 						errors = append(errors, err)
 						return
 					}
+					sha512, err := sha3_512(pathFunc)
+					if err != nil {
+						errors = append(errors, err)
+						return
+					}
+
 					photoFiles = append(photoFiles, photoHash{
-						hash:   imgHash,
-						path:   pathFunc,
-						width:  img.Bounds().Dx(),
-						height: img.Bounds().Dy(),
+						imgHash: imgHash,
+						sha512:  sha512,
+						path:    pathFunc,
+						width:   img.Bounds().Dx(),
+						height:  img.Bounds().Dy(),
 					})
 					return
 				}
+
+				// 映像(mp4 mov webm) の処理
 				if strings.Contains(".mp4 .mov .webm", fileExt) {
 					// ファイル数追加
 					info.VideoFileCount++
 					fmt.Printf("%s ・%-40s  (%s) Video No.%04d\n", Space(index), d.Name(), Size(fileInfoFunc.Size()), info.VideoFileCount)
 					// 動画データ入手
 					video := videoHash{
-						path:  pathFunc,
-						hashs: [3]*goimagehash.ImageHash{},
+						path:     pathFunc,
+						imgHashs: [3]*goimagehash.ImageHash{},
 					}
 					videoTime := 0
 					out, _ := exec.Command(config.Ffmpeg, "-i", pathFunc).CombinedOutput()
@@ -197,19 +217,28 @@ func main() {
 							}
 						}
 						// 取り出し
-						timing := fmt.Sprintf("%d", videoPhotoTiming-videoPhotoTimingOffset)
+						timing := fmt.Sprintf("%d", videoPhotoTiming*i-videoPhotoTimingOffset)
 						tempPhoto := fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name())
 						exec.Command(config.Ffmpeg, "-ss", timing, "-i", pathFunc, "-frames:v", "1", tempPhoto).Run()
 						// Hash保存
-						_, hash, err := image2Hash(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
+						_, imghash, err := image2Hash(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
 						if err != nil {
 							errors = append(errors, err)
 							return
 						}
-						video.hashs[i] = hash
+						video.imgHashs[i] = imghash
 					}
 					// temp写真削除
 					os.Remove(fmt.Sprintf("./temp/%s_videoPhoto.png", fileInfoFunc.Name()))
+
+					// sha3-512生成
+					sha512, err := sha3_512(pathFunc)
+					if err != nil {
+						errors = append(errors, err)
+						return
+					}
+					video.sha512 = sha512
+
 					// 保存
 					mapEdit.Lock()
 					defer mapEdit.Unlock()
@@ -233,16 +262,83 @@ func main() {
 	fmt.Println("----------------------------------------")
 	fmt.Println("")
 
-	// 画像
+	// 重複チェック 画像
 	for i := 0; i < len(photoFiles); i++ {
 		data1 := photoFiles[i]
-		var duplicates []WithImageData
+		var duplicates []string
 		for j := i + 1; j < len(photoFiles); j++ {
 			data2 := photoFiles[j]
-			distance, _ := data1.hash.Distance(data2.hash)
+			if data1.sha512 == data2.sha512 {
+				// json用に保存
+				duplicates = append(duplicates, data2.path)
+			}
+			// 引っかかったのは今後検索に掛けない
+			photoFiles = append(photoFiles[:j], photoFiles[j+1:]...)
+		}
+		// 重複があればjsonに保存
+		if len(duplicates) > 0 {
+			result.Duplicate = append(result.Duplicate, ImageInfoDuplicate{
+				Compare: CompareImageData{
+					Path:   data1.path,
+					Width:  data1.width,
+					Height: data1.height,
+				},
+				With: duplicates,
+			})
+			// 見やすく表示
+			fmt.Printf("Duplicate,Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
+			for j := 0; j < len(duplicates); j++ {
+				fmt.Printf("         %s\n", duplicates[j])
+			}
+		}
+	}
+	// 重複チェック 動画
+	for videoTime, videos := range videoFiles {
+		if len(videos) < 2 {
+			continue
+		}
+		for i := 0; i < len(videos); i++ {
+			data1 := videos[i]
+			var duplicates []string
+			for j := i + 1; j < len(videos); j++ {
+				data2 := videos[j]
+				if data1.sha512 == data2.sha512 {
+					// json用に保存
+					duplicates = append(duplicates, data2.path)
+				}
+				// 引っかかったのは今後検索に掛けない
+				videos = append(videos[:j], videos[j+1:]...)
+			}
+			// 重複があればjsonに保存
+			if len(duplicates) > 0 {
+				result.Duplicate = append(result.Duplicate, ImageInfoDuplicate{
+					Compare: CompareImageData{
+						Path:   data1.path,
+						Width:  data1.width,
+						Height: data1.height,
+					},
+					With: duplicates,
+					Time: videoTime,
+				})
+				// 見やすく表示
+				fmt.Printf("Duplicate,Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
+				for j := 0; j < len(duplicates); j++ {
+					fmt.Printf("         %s\n", duplicates[j])
+				}
+			}
+		}
+	}
+
+	// 類似チェック 画像
+	for i := 0; i < len(photoFiles); i++ {
+		data1 := photoFiles[i]
+		var duplicates []WithImageDataSimilar
+		for j := i + 1; j < len(photoFiles); j++ {
+			data2 := photoFiles[j]
+			distance, _ := data1.imgHash.Distance(data2.imgHash)
 			if distance <= config.PhotoAccept {
 				// json用に保存
-				duplicates = append(duplicates, WithImageData{
+				duplicates = append(duplicates, WithImageDataSimilar{
 					Path:     data2.path,
 					Width:    data2.width,
 					Height:   data2.height,
@@ -254,7 +350,7 @@ func main() {
 		}
 		// 重複があればjsonに保存
 		if len(duplicates) > 0 {
-			result.Images = append(result.Images, ImageInfo{
+			result.Similar = append(result.Similar, ImageInfoSimilar{
 				Compare: CompareImageData{
 					Path:   data1.path,
 					Width:  data1.width,
@@ -263,30 +359,30 @@ func main() {
 				With: duplicates,
 			})
 			// 見やすく表示
-			fmt.Printf("Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
+			fmt.Printf("Similar,Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
 			for j := 0; j < len(duplicates); j++ {
 				fmt.Printf("         [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
 			}
 		}
 	}
-	// 動画
+	// 類似チェック 動画
 	for videoTime, videos := range videoFiles {
 		if len(videos) < 2 {
 			continue
 		}
 		for i := 0; i < len(videos); i++ {
 			data1 := videos[i]
-			var duplicates []WithImageData
+			var duplicates []WithImageDataSimilar
 			for j := i + 1; j < len(videos); j++ {
 				data2 := videos[j]
 				distance := 0
 				for k := 0; k < 3; k++ {
-					imageDistance, _ := data1.hashs[k].Distance(data2.hashs[k])
+					imageDistance, _ := data1.imgHashs[k].Distance(data2.imgHashs[k])
 					distance += imageDistance
 				}
 				if distance <= config.VideoAccept {
 					// json用に保存
-					duplicates = append(duplicates, WithImageData{
+					duplicates = append(duplicates, WithImageDataSimilar{
 						Path:     data2.path,
 						Width:    data2.width,
 						Height:   data2.height,
@@ -298,7 +394,7 @@ func main() {
 			}
 			// 重複があればjsonに保存
 			if len(duplicates) > 0 {
-				result.Videos = append(result.Videos, ImageInfo{
+				result.Similar = append(result.Similar, ImageInfoSimilar{
 					Compare: CompareImageData{
 						Path:   data1.path,
 						Width:  data1.width,
@@ -308,7 +404,7 @@ func main() {
 					Time: videoTime,
 				})
 				// 見やすく表示
-				fmt.Printf("Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
+				fmt.Printf("Similar,Compare: [%4dpx*%4dpx] %s \n", data1.width, data1.height, data1.path)
 				for j := 0; j < len(duplicates); j++ {
 					fmt.Printf("         [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
 				}
@@ -395,16 +491,30 @@ func ValueSize(n int64) {
 }
 
 func image2Hash(file string) (img image.Image, imgHash *goimagehash.ImageHash, err error) {
+	// 読み取り
 	var imgFile *os.File
 	imgFile, err = os.Open(file)
 	if err != nil {
 		return
 	}
 	defer imgFile.Close()
+	// ImageHash化
 	img, _, err = image.Decode(imgFile)
 	if err != nil {
 		return
 	}
 	imgHash, _ = goimagehash.PerceptionHash(img)
+	return
+}
+
+func sha3_512(file string) (sha512 string, err error) {
+	// 読み取り
+	var imgFile []byte
+	imgFile, err = os.ReadFile(file)
+	if err != nil {
+		return
+	}
+	// CryptoHash化
+	sha512 = fmt.Sprintf("%x", sha3.Sum512(imgFile))
 	return
 }
