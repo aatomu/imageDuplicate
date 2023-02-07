@@ -268,6 +268,10 @@ func main() {
 		var duplicates []string
 		for j := i + 1; j < len(photoFiles); j++ {
 			data2 := photoFiles[j]
+			// Path Check
+			if data1.path == data2.path {
+				continue
+			}
 			if data1.sha512 == data2.sha512 {
 				// json用に保存
 				duplicates = append(duplicates, data2.path)
@@ -302,6 +306,10 @@ func main() {
 			var duplicates []string
 			for j := i + 1; j < len(videos); j++ {
 				data2 := videos[j]
+				// Path Check
+				if data1.path == data2.path {
+					continue
+				}
 				if data1.sha512 == data2.sha512 {
 					// json用に保存
 					duplicates = append(duplicates, data2.path)
@@ -335,6 +343,10 @@ func main() {
 		var duplicates []WithImageDataSimilar
 		for j := i + 1; j < len(photoFiles); j++ {
 			data2 := photoFiles[j]
+			// Path Check
+			if data1.path == data2.path {
+				continue
+			}
 			distance, _ := data1.imgHash.Distance(data2.imgHash)
 			if distance <= config.PhotoAccept {
 				// json用に保存
@@ -375,6 +387,10 @@ func main() {
 			var duplicates []WithImageDataSimilar
 			for j := i + 1; j < len(videos); j++ {
 				data2 := videos[j]
+				// Path Check
+				if data1.path == data2.path {
+					continue
+				}
 				distance := 0
 				for k := 0; k < 3; k++ {
 					imageDistance, _ := data1.imgHashs[k].Distance(data2.imgHashs[k])
