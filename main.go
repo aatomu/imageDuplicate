@@ -59,6 +59,7 @@ type videoHash struct {
 type JsonExport struct {
 	Duplicate []ImageInfoDuplicate `json:"duplicate"`
 	Similar   []ImageInfoSimilar   `json:"similar"`
+	Other     []ImageInfoOther     `json:"other"`
 }
 
 type ImageInfoDuplicate struct {
@@ -69,6 +70,11 @@ type ImageInfoDuplicate struct {
 type ImageInfoSimilar struct {
 	Compare CompareImageData       `json:"compare"`
 	With    []WithImageDataSimilar `json:"with"`
+}
+
+type ImageInfoOther struct {
+	Path string `json:"path"`
+	Hash string `json:"hash"`
 }
 
 type CompareImageData struct {
@@ -257,7 +263,7 @@ func main() {
 	funcs.Wait()
 
 	fmt.Println("")
-	fmt.Printf("Scaned File: %dT %dG %dM %dK %dB %dDir %dFiles(%dPhoto, %dVideo)\n", info.valueTB, info.valueGB, info.valueMB, info.valueKB, info.valueB, info.DirCount, info.ImageFileCount+info.VideoFileCount,len(photoFiles),len(videoFiles))
+	fmt.Printf("Scaned File: %dT %dG %dM %dK %dB %dDir %dFiles(%dPhoto, %dVideo)\n", info.valueTB, info.valueGB, info.valueMB, info.valueKB, info.valueB, info.DirCount, info.ImageFileCount+info.VideoFileCount, len(photoFiles), len(videoFiles))
 	fmt.Println("----------------------------------------")
 	fmt.Println("File Scan End")
 	fmt.Println("----------------------------------------")
@@ -301,6 +307,7 @@ func main() {
 			for j := 0; j < len(duplicates); j++ {
 				fmt.Printf("            %s\n", duplicates[j])
 			}
+			photoFiles = append(photoFiles[:i], photoFiles[i+1:]...)
 		}
 	}
 	// 重複チェック 動画
@@ -321,8 +328,8 @@ func main() {
 			if data1.sha512 == data2.sha512 {
 				// json用に保存
 				duplicates = append(duplicates, data2.path)
-			// 引っかかったのは今後検索に掛けない
-			videoFiles = append(videoFiles[:j], videoFiles[j+1:]...)
+				// 引っかかったのは今後検索に掛けない
+				videoFiles = append(videoFiles[:j], videoFiles[j+1:]...)
 			}
 		}
 		// 重複があればjsonに保存
@@ -341,6 +348,7 @@ func main() {
 			for j := 0; j < len(duplicates); j++ {
 				fmt.Printf("            %s\n", duplicates[j])
 			}
+			videoFiles = append(videoFiles[:i], videoFiles[i+1:]...)
 		}
 	}
 
@@ -364,8 +372,8 @@ func main() {
 					Height:   data2.height,
 					Distance: distance,
 				})
-			// 引っかかったのは今後検索に掛けない
-			photoFiles = append(photoFiles[:j], photoFiles[j+1:]...)
+				// 引っかかったのは今後検索に掛けない
+				photoFiles = append(photoFiles[:j], photoFiles[j+1:]...)
 			}
 		}
 		// 重複があればjsonに保存
@@ -384,6 +392,7 @@ func main() {
 			for j := 0; j < len(duplicates); j++ {
 				fmt.Printf("            [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
 			}
+			photoFiles = append(photoFiles[:i], photoFiles[i+1:]...)
 		}
 	}
 	// 類似チェック 動画
@@ -415,8 +424,8 @@ func main() {
 					Height:   data2.height,
 					Distance: distance,
 				})
-			// 引っかかったのは今後検索に掛けない
-			videoFiles = append(videoFiles[:j], videoFiles[j+1:]...)
+				// 引っかかったのは今後検索に掛けない
+				videoFiles = append(videoFiles[:j], videoFiles[j+1:]...)
 			}
 		}
 		// 重複があればjsonに保存
@@ -436,6 +445,23 @@ func main() {
 				fmt.Printf("            [%4dpx*%4dpx] Distance:%-3d %s\n", duplicates[j].Width, duplicates[j].Height, duplicates[j].Distance, duplicates[j].Path)
 			}
 		}
+		videoFiles = append(videoFiles[:i], videoFiles[i+1:]...)
+	}
+
+	// Hashを保存
+	for i := 0; i < len(photoFiles); i++ {
+		photo := photoFiles[i]
+		result.Other = append(result.Other, ImageInfoOther{
+			Path: photo.path,
+			Hash: photo.sha512,
+		})
+	}
+	for i := 0; i < len(videoFiles); i++ {
+		video := videoFiles[i]
+		result.Other = append(result.Other, ImageInfoOther{
+			Path: video.path,
+			Hash: video.sha512,
+		})
 	}
 	fmt.Println("")
 	fmt.Println("----------------------------------------")
@@ -465,7 +491,6 @@ func main() {
 	fmt.Println("Save End Duplicate/Similar Data To Json")
 	fmt.Println("----------------------------------------")
 	fmt.Println("")
-
 
 	// エラー表示
 	if len(errors) > 0 {
