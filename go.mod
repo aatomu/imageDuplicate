@@ -1,4 +1,4 @@
-module github.com/atomu21263/imageDuplicate
+module github.com/aatomu/imageDuplicate
 
 go 1.17
 
