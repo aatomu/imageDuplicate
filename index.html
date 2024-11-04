@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+
+<head>
+  <title>imageDuplicate</title>
+  <style>
+    .body {
+      text-align: center;
+    }
+
+    tr {
+      border-color: black;
+      border-width: 2px;
+      border-style: solid;
+    }
+
+    td {
+      border-color: gray;
+      border-width: 1px;
+      border-style: solid;
+
+      width: 20vw;
+      height: 20vw;
+      aspect-ratio: 1/1;
+    }
+
+    video {
+      object-fit: contain;
+      height: calc(100% - 2lh);
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <table>
+    <tbody id="table">
+
+    </tbody>
+  </table>
+  <h1>This Is Index Page</h1>
+</body>
+<script>
+  const table = document.getElementById("table")
+
+  window.addEventListener("DOMContentLoaded", async () => {
+    data = await fetch("./?file=json").then(res => { return res.json() })
+    console.log(data)
+    data.similar.forEach((v,index) => {
+      const tr = document.createElement("tr")
+
+      const source = document.createElement("td")
+      const sourceVideo = document.createElement("video")
+      sourceVideo.src = `./?file=${v.source.path}`
+      sourceVideo.controls = true
+      source.append(sourceVideo)
+
+      source.append(document.createElement("br"))
+
+      const sourceComment = document.createElement("span")
+      sourceComment.innerText = `${index+1}/${data.similar.length}-${v.source.height}x${v.source.width}`
+      source.append(sourceComment)
+
+      tr.appendChild(source)
+
+      v.with.forEach(w => {
+        const dest = document.createElement("td")
+      const destVideo = document.createElement("video")
+      destVideo.src = `./?file=${w.dest.path}`
+      destVideo.controls = true
+      dest.append(destVideo)
+
+      dest.append(document.createElement("br"))
+
+      const destComment = document.createElement("span")
+      destComment.innerText = `${w.dest.height}x${w.dest.width};${w.distance}`
+      dest.append(destComment)
+
+      tr.appendChild(dest)
+      })
+
+      table.appendChild(tr)
+    });
+  })
+</script>

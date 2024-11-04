@@ -5,5 +5,5 @@ temp/*
 # local実行用設
 local_config.json
 run.sh
-# VScode History Extension
-.history
+# VScode Extension
+.vscode
